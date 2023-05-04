@@ -77,7 +77,7 @@
 
 			function loadPieuvre() {
 				const loader = new GLTFLoader();
-				loader.load('../../blender-files/pieuvre.glb', function (gltf) {
+				loader.load('models/pieuvre.glb', function (gltf) {
 					const model = gltf.scene;
 					model.position.set(0, 0, 0);
 					model.scale.set(0.1, 0.1, 0.1);
