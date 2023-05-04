@@ -33,6 +33,7 @@
 			let startTime = Date.now();
 
 			let bones = [];
+			let initialBones = [];
 
 			// Setup
 			const scene = new THREE.Scene();
@@ -91,7 +92,7 @@
 						bones.push(object[0]);
 						object = object[0].children;
 					}
-					console.log(bones);
+					initialBones = bones.map(bone => bone.clone());
 				});
 			}
 
@@ -140,18 +141,25 @@
 
 			function animate() {
 				requestAnimationFrame(animate);
-                // if (mixer) mixer.update(delta);
+				// if (mixer) mixer.update(delta);
 
-				let i = 1;
 				let t = clock.getElapsedTime();
-				let test = 2 * Math.PI / bones.length;
-				bones.forEach((bone, index) => {
-					bone.position.z = Math.sin(t * i * test * 5);
-					i = i * -1;
-				})
-				renderer.render(scene, camera);
 
+				for (let i = 0; i < initialBones.length; i++) {
+					bones[i].position.z = initialBones[i].position.z + pointOnSineWave(t, i);
+				}
+				renderer.render(scene, camera);
 			}
+
+			function pointOnSineWave(x, boneIndex) {
+				const amplitude = .2;
+				const period = 4;
+				const phaseOffset = Math.PI / initialBones.length;
+				const phase = boneIndex * phaseOffset;
+
+				return amplitude * Math.sin(2 * Math.PI * (x / period) + phase);
+			}
+
 
 		</script>
 
