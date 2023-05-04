@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Three.js TP3</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style></style>
+	</head>
+
+	<body style="margin: 0;">		
+		<script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+		<script type="importmap">
+		  {
+			"imports": {
+			  "three": "https://unpkg.com/three@0.151.3/build/three.module.js",
+			  "three/addons/": "https://unpkg.com/three@0.151.3/examples/jsm/"
+			}
+		  }
+		</script>
+
+		<script type="module">
+
+			import * as THREE from 'three';
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+			import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+			let originalOctahedron;
+			let octahedron;
+			let targets = [];
+			let originalTargets = [];
+			let startTime = Date.now();
+
+			let bones = [];
+			let initialBones = [];
+
+			// Setup
+			const scene = new THREE.Scene();
+			const camera = setupCamera();
+			const renderer = setupRenderer();
+			const controls = setupControls();
+			const raycaster = new THREE.Raycaster();
+    		const mouse = new THREE.Vector2();
+			const playAnimation = {
+				playAnimation: true
+			};
+			
+			const clock = new THREE.Clock();
+			clock.start();
+			let mixer;
+
+
+			// Light
+			addDirectionalLight(scene);
+
+			// Background & Environment
+			loadEnvironment(scene);
+
+			// // Octahedron
+			// createOctahedron(scene);
+
+			load(scene);
+
+			// Event Listeners
+			window.addEventListener('resize', onWindowResize);
+			window.addEventListener('resize', onWindowResize);		
+
+
+			// Animation
+			animate();
+
+			function setupCamera() {
+				const cam = new THREE.PerspectiveCamera(100, window.innerWidth / window.innerHeight, 0.25, 20);
+				cam.position.set(0, 0, -10);
+				return cam;
+			}
+
+			function load() {
+				const loader = new GLTFLoader();
+				loader.load('../../blender-files/pieuvre2.glb', function (gltf) {
+					const model = gltf.scene;
+					model.position.set(0, 0, 0);
+					model.scale.set(1, 1, 1);
+					scene.add(model);
+					mixer = new THREE.AnimationMixer(gltf.scene);
+
+					for(let i = 1; i < 9; i++) {
+						let currTentacleBones = [];
+						let object = scene.getObjectByName("Bone_" + i);
+						currTentacleBones.push(object);
+						object = object.children;
+						while (!(object === undefined || object.length === 0)) {
+							currTentacleBones.push(object[0]);
+							object = object[0].children;
+						}
+						bones.push(currTentacleBones);
+						initialBones.push(currTentacleBones.map(bone => bone.clone()));
+					}
+					console.log(bones);
+				});
+			}
+
+			function setupRenderer() {
+				const rend = new THREE.WebGLRenderer({ antialias: true });
+				rend.setPixelRatio(window.devicePixelRatio);
+				rend.setSize(window.innerWidth, window.innerHeight);
+				rend.toneMapping = THREE.ACESFilmicToneMapping;
+				rend.toneMappingExposure = 1;
+				rend.outputEncoding = THREE.sRGBEncoding;
+				document.body.appendChild(rend.domElement);
+				return rend;
+			}
+
+			function setupControls() {
+				const ctrl = new OrbitControls(camera, renderer.domElement);
+				ctrl.minDistance = 2;
+				ctrl.maxDistance = 10;
+				ctrl.target.set(0, 0, -0.2);
+				ctrl.update();
+				return ctrl;
+			}
+
+			function addDirectionalLight(scene) {
+				const light = new THREE.DirectionalLight(0x9400D3, .3);
+				light.position.set(1, 1, 1);
+				scene.add(light);
+			}
+
+			function loadEnvironment(scene) {
+				new THREE.TextureLoader()
+					.setPath('textures/equirectangular/')
+					.load('sky1.jpg', function (texture) {
+						texture.mapping = THREE.EquirectangularReflectionMapping;
+						texture.encoding = THREE.sRGBEncoding;
+						scene.background = texture;
+						scene.environment = texture;
+					});
+			}
+			
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(window.innerWidth, window.innerHeight);
+			}
+
+			function animate() {
+				requestAnimationFrame(animate);
+
+				let t = clock.getElapsedTime();
+
+				if (bones.length > 0) {
+					for (let i = 0; i < bones.length; i++) {
+						for (let j = bones[i].length / 4; j < bones[i].length; j++) {
+							bones[i][j].position.x = initialBones[i][j].position.x + pointOnSineWave(t, j);
+						}
+					}
+				}
+				renderer.render(scene, camera);
+			}
+
+			function pointOnSineWave(x, boneIndex) {
+				const amplitude = 0.1;
+				const period = 3;
+
+				const bonePhaseOffset = Math.PI / initialBones[0].length;
+
+				const phase = boneIndex * bonePhaseOffset * 2;
+
+				return amplitude * Math.sin(2 * Math.PI * (x / period) + phase);
+			}
+
+
+		</script>
+
+	</body>
+</html>
