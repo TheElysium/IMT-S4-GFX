@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Three.js TP3</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style></style>
+	</head>
+
+	<body style="margin: 0;">		
+		<script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+		<script type="importmap">
+		  {
+			"imports": {
+			  "three": "https://unpkg.com/three@0.151.3/build/three.module.js",
+			  "three/addons/": "https://unpkg.com/three@0.151.3/examples/jsm/"
+			}
+		  }
+		</script>
+
+		<script type="module">
+
+			import * as THREE from 'three';
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+			import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+			let startTime = Date.now();
+
+			let cubesList = [];
+			let cubeBBox = [];
+
+			// Setup
+			const scene = new THREE.Scene();
+			const camera = setupCamera();
+			const renderer = setupRenderer();
+			const controls = setupControls();
+			const raycaster = new THREE.Raycaster();
+    		const mouse = new THREE.Vector2();
+			const playAnimation = {
+				playAnimation: true
+			};
+			
+			const clock = new THREE.Clock();
+			clock.start();
+			let mixer;
+
+
+			// Light
+			addDirectionalLight(scene);
+
+			// Background & Environment
+			loadEnvironment(scene);
+
+			// // Octahedron
+			// createOctahedron(scene);
+
+			load(scene);
+
+			// Event Listeners
+			window.addEventListener('resize', onWindowResize);
+			window.addEventListener('resize', onWindowResize);		
+
+
+			// Animation
+			animate();
+
+			function setupCamera() {
+				const cam = new THREE.PerspectiveCamera(100, window.innerWidth / window.innerHeight, 0.25, 20);
+				cam.position.set(0, 0, -10);
+				return cam;
+			}
+
+			function load() {
+				const size = 0.1;
+				for(let i = 0; i < 500; i++) {
+                    addCube(randomIntFromInterval(-size, size, 3), randomIntFromInterval(-size, size, 3), randomIntFromInterval(-size, size, 3), i);
+                }
+			}
+
+			function addCube(px, py, pz, id) {
+                const colorandom = new THREE.Color(0xffffff);
+                colorandom.setHex(Math.random() * 0xffffff);
+                const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+                const boxMaterial = new THREE.MeshBasicMaterial({ color: colorandom });
+                const cube = new THREE.Mesh(geometry, boxMaterial);
+
+                cube.position.set(px, py, pz);
+                cube.geometry.computeBoundingBox();
+				cube.name = "cube_" + id;
+                scene.add(cube);
+
+				cubesList.push(cube);
+				const box = new THREE.Box3().setFromObject(cube);
+				cubeBBox.push(box);
+
+				// const helper = new THREE.Box3Helper( box, 0xffff00 );
+				// scene.add( helper );
+
+                return cube;
+            }
+
+			function randomIntFromInterval(min, max, decimalPlaces) { // min and max included
+                return (Math.random() * (max - min) + min).toFixed(decimalPlaces) * 1;
+            }
+
+			function setupRenderer() {
+				const rend = new THREE.WebGLRenderer({ antialias: true });
+				rend.setPixelRatio(window.devicePixelRatio);
+				rend.setSize(window.innerWidth, window.innerHeight);
+				rend.toneMapping = THREE.ACESFilmicToneMapping;
+				rend.toneMappingExposure = 1;
+				rend.outputEncoding = THREE.sRGBEncoding;
+				document.body.appendChild(rend.domElement);
+				return rend;
+			}
+
+			function setupControls() {
+				const ctrl = new OrbitControls(camera, renderer.domElement);
+				ctrl.minDistance = 2;
+				ctrl.maxDistance = 10;
+				ctrl.target.set(0, 0, -0.2);
+				ctrl.update();
+				return ctrl;
+			}
+
+			function addDirectionalLight(scene) {
+				const light = new THREE.DirectionalLight(0x9400D3, .3);
+				light.position.set(1, 1, 1);
+				scene.add(light);
+			}
+
+			function loadEnvironment(scene) {
+				new THREE.TextureLoader()
+					.setPath('textures/equirectangular/')
+					.load('sky1.jpg', function (texture) {
+						texture.mapping = THREE.EquirectangularReflectionMapping;
+						texture.encoding = THREE.sRGBEncoding;
+						scene.background = texture;
+						scene.environment = texture;
+					});
+			}
+			
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(window.innerWidth, window.innerHeight);
+			}
+
+			function animate() {
+				requestAnimationFrame(animate);
+
+				
+
+				// for(let i = 0; i < cubesList.length; i++) {
+				// 	cubesList[i].position.x += randomIntFromInterval(-0.1, 0.1, 2);
+				// 	cubesList[i].position.y += randomIntFromInterval(-0.1, 0.1, 2);
+				// 	cubesList[i].position.z += randomIntFromInterval(-0.1, 0.1, 2);
+				// 	cubeBBox[i].setFromObject(cubesList[i]);
+				// }
+				const move = 0.01;
+
+				for(let i = 0; i < cubesList.length; i++) {
+					let isIntersecting = false;
+					for(let j = i; j < cubesList.length && !isIntersecting; j++) {
+						if(i != j) {
+							if(cubeBBox[i].intersectsBox(cubeBBox[j])) {
+								isIntersecting = true;
+								console.log("collision detected between " + cubesList[i].name + " and " + cubesList[j].name);
+								cubesList[i].position.x += randomIntFromInterval(-move, move, 5);
+								cubesList[i].position.y += randomIntFromInterval(-move, move, 5);
+								cubesList[i].position.z += randomIntFromInterval(-move, move, 5);
+								cubeBBox[i].setFromObject(cubesList[i]);
+								//Change color
+								const colorandom = new THREE.Color(0xffffff);
+								colorandom.setHex(Math.random() * 0xffffff);
+								cubesList[i].material.color = colorandom;
+							}
+						}
+					}
+				}
+				renderer.render(scene, camera);
+			}
+
+
+		</script>
+
+	</body>
+</html>
