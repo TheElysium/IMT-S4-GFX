@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Three.js TP1</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style></style>
+	</head>
+
+	<body style="margin: 0;">
+	<audio id="audio" controls></audio>
+	<div id="out"></div>
+		<script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+
+		<script type="importmap">
+		  {
+			"imports": {
+			  "three": "https://unpkg.com/three@0.151.3/build/three.module.js",
+			  "three/addons/": "https://unpkg.com/three@0.151.3/examples/jsm/"
+			}
+		  }
+		</script>
+
+		<script type="module">
+
+			import * as THREE from 'three';
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+
+			let originalOctahedron;
+			let octahedron;
+			let targets = [];
+			let originalTargets = [];
+			let startTime = Date.now();
+			let audio = document.getElementById("audio");
+			let analyser, dataArray;
+
+			const clock = new THREE.Clock();
+			clock.start();
+
+			// Setup
+			const scene = new THREE.Scene();
+			const camera = setupCamera();
+			const renderer = setupRenderer();
+			const controls = setupControls();
+			const raycaster = new THREE.Raycaster();
+    		const mouse = new THREE.Vector2();
+			const playAnimation = {
+				playAnimation: true
+			};
+
+
+			// Light
+			addDirectionalLight(scene);
+
+			// Background & Environment
+			loadEnvironment(scene);
+
+			// Octahedron
+			createOctahedron(scene);
+
+			// Event Listeners
+			window.addEventListener('resize', onWindowResize);
+			window.addEventListener('resize', onWindowResize);
+    		window.addEventListener('click', onMouseClick);
+
+			play("audio/shreksophone.mp3");
+
+			// GUI
+			const gui = new GUI();
+
+			// GUI Color
+			gui.addColor({ color: octahedron.material.color.getHex() }, 'color').onChange((color) => {
+				octahedron.material.color.set(color);
+			});
+
+			// GUI Metalness
+			gui.add(octahedron.material, 'metalness', 0, 1, 0.01);
+
+			// GUI Roughness
+			gui.add(octahedron.material, 'roughness', 0, 1, 0.01);
+			
+			// GUI show wireframe
+			gui.add(octahedron.material, 'wireframe');
+
+			// GUI Toggle Animation
+			gui.add(playAnimation, 'playAnimation')
+
+			// GUI Reset button
+			gui.add({ reset: () => resetOctahedron() }, 'reset');
+
+			// Raycast interfers with GUI 
+			gui.domElement.addEventListener('mouseover', () => {
+				window.removeEventListener('click', onMouseClick);
+			});
+
+			gui.domElement.addEventListener('mouseout', () => {
+				window.addEventListener('click', onMouseClick);
+			});
+
+
+			// Animation
+			animate();
+
+			function play(e) {
+				console.log(e);
+				audio.src = e; // URL.createObjectURL(e);
+				audio.load();
+				audio.play();
+
+
+				let context = new AudioContext();
+				let src = context.createMediaElementSource(audio);
+				analyser = context.createAnalyser();
+				src.connect(analyser);
+				analyser.connect(context.destination);
+				analyser.fftSize = 512;
+				let bufferLength = analyser.frequencyBinCount;
+				dataArray = new Uint8Array(bufferLength);
+			}
+
+			function setupCamera() {
+				const cam = new THREE.PerspectiveCamera(100, window.innerWidth / window.innerHeight, 0.25, 20);
+				cam.position.set(-1.8, 0.6, 2.7);
+				return cam;
+			}
+
+			function setupRenderer() {
+				const rend = new THREE.WebGLRenderer({ antialias: true });
+				rend.setPixelRatio(window.devicePixelRatio);
+				rend.setSize(window.innerWidth, window.innerHeight);
+				rend.toneMapping = THREE.ACESFilmicToneMapping;
+				rend.toneMappingExposure = 1;
+				rend.outputEncoding = THREE.sRGBEncoding;
+				document.body.appendChild(rend.domElement);
+				return rend;
+			}
+
+			function setupControls() {
+				const ctrl = new OrbitControls(camera, renderer.domElement);
+				ctrl.minDistance = 2;
+				ctrl.maxDistance = 10;
+				ctrl.target.set(0, 0, -0.2);
+				ctrl.update();
+				return ctrl;
+			}
+
+			function addDirectionalLight(scene) {
+				const light = new THREE.DirectionalLight(0x9400D3, .3);
+				light.position.set(1, 1, 1);
+				scene.add(light);
+			}
+
+			function loadEnvironment(scene) {
+				new THREE.TextureLoader()
+					.setPath('textures/equirectangular/')
+					.load('sky1.jpg', function (texture) {
+						texture.mapping = THREE.EquirectangularReflectionMapping;
+						texture.encoding = THREE.sRGBEncoding;
+						scene.background = texture;
+						scene.environment = texture;
+					});
+			}
+
+			function createOctahedron(scene) {
+				// Vertices
+				const vertices = new Float32Array([
+					.7, 0, 0, // Vertex 0
+					-.7, 0, 0, // Vertex 1
+					0, 1, 0, // Vertex 2
+					0, -1, 0, // Vertex 3
+					0, 0, .7, // Vertex 4
+					0, 0, -.7 // Vertex 5
+				]);
+				const indices = new Uint16Array([
+					0, 2, 4, // Triangle 1
+					0, 4, 3, // Triangle 2
+					0, 3, 5, // Triangle 3
+					0, 5, 2, // Triangle 4
+					1, 4, 2, // Triangle 5
+					1, 3, 4, // Triangle 6
+					1, 5, 3, // Triangle 7
+					1, 2, 5  // Triangle 8
+				]);
+
+				// Geometry
+				const geometry = new THREE.BufferGeometry(); 
+				geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+				geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+				geometry.computeVertexNormals();
+				
+				// Material
+				const material = new THREE.MeshStandardMaterial({ color: 0x7d86ff, metalness: .3, roughness: 0 });
+
+				// Octahedron Mesh
+				originalOctahedron = new THREE.Mesh(geometry, material);
+				octahedron = new THREE.Mesh(geometry.clone(), material); // Clone the geometry
+
+				const originalPositions = originalOctahedron.geometry.attributes.position;
+				for (let i = 0; i < originalPositions.count; i++) {
+					const targetPosition = new THREE.Vector3(
+						originalPositions.getX(i),
+						originalPositions.getY(i),
+						originalPositions.getZ(i)
+					);
+					originalTargets[i] = targetPosition;
+   				}
+
+				// Add Octahedron to Scene
+				scene.add(octahedron);
+			}
+
+			
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(window.innerWidth, window.innerHeight);
+			}
+
+			function onMouseClick(event) {
+				event.preventDefault();
+
+				const mouse = new THREE.Vector2();
+				mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+				mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+				const raycaster = new THREE.Raycaster();
+				raycaster.setFromCamera(mouse, camera);
+
+				const intersects = raycaster.intersectObjects(scene.children);
+
+				if (intersects.length > 0) {
+					const selectedObject = intersects[0].object;
+					moveRandomVertex(selectedObject);
+				}
+			}
+
+			function resetOctahedron() {
+				resetPositions();
+				resetMaterial();
+			}
+
+			function resetPositions() {
+				const originalPositions = originalOctahedron.geometry.attributes.position;
+				targets = [...originalTargets];
+			}
+
+			function resetMaterial() {
+				octahedron.material.color.set(0x7d86ff);
+				octahedron.material.metalness = 0.3;
+				octahedron.material.roughness = 0;
+			}
+
+			function splitArray(array, parts) {
+				let result = [];
+				for (let i = 0; i < parts; i++) {
+					result.push(array.slice(i * Math.ceil(array.length / parts), (i + 1) * Math.ceil(array.length / parts)));
+				}
+				return result;
+			}
+
+			function animate() {
+				requestAnimationFrame(animate);
+				let t = clock.getElapsedTime();
+
+				analyser.getByteFrequencyData(dataArray);
+				const lowerHalfArray = dataArray.slice(0, (dataArray.length / 3) - 1);
+				const upperHalfArray = dataArray.slice((dataArray.length / 3) - 1, dataArray.length - 1);
+
+				const lowerFqAvg = lowerHalfArray.reduce((a, b) => a + b) / lowerHalfArray.length;
+				const upperFqAvg = upperHalfArray.reduce((a, b) => a + b) / upperHalfArray.length;
+
+				const newScale = {
+					x: (lowerFqAvg / 500) + originalOctahedron.scale.x,
+					y: (lowerFqAvg / 500) + originalOctahedron.scale.y,
+					z: (lowerFqAvg / 500) + originalOctahedron.scale.z
+				};
+
+				octahedron.scale.set(newScale.x, newScale.y, newScale.z);
+
+				const originalPositions = originalOctahedron.geometry.attributes.position;
+
+				const splittedArray = splitArray(upperHalfArray, originalPositions.count);
+
+				let splittedUpperHalfArrayAvg = splittedArray.map(s => {
+					return s.reduce((a, b) => a + b) / s.length;
+				});
+
+				const currPositions = octahedron.geometry.attributes.position;
+
+				for (let i = 0; i < splittedUpperHalfArrayAvg.length; i++) {
+					const originalPosition = new THREE.Vector3().fromBufferAttribute(originalPositions, i);
+					const direction = originalPosition.clone().normalize();
+
+					let scaledAvg = splittedUpperHalfArrayAvg[i] / 500;
+
+					direction.multiplyScalar(scaledAvg);
+					const newPosition = originalPosition.add(direction);
+					currPositions.setXYZ(i, newPosition.x, newPosition.y, newPosition.z);
+				}
+
+				currPositions.needsUpdate = true;
+
+				renderer.render(scene, camera);
+			}
+
+
+		</script>
+
+	</body>
+</html>

@@ -26,11 +26,7 @@
 			import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 			import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-			let originalOctahedron;
-			let octahedron;
-			let targets = [];
-			let originalTargets = [];
-			let startTime = Date.now();
+			let pieuvre;
 
 			let bones = [];
 			let initialBones = [];
@@ -83,6 +79,7 @@
 					model.position.set(0, 0, 0);
 					model.scale.set(1, 1, 1);
 					scene.add(model);
+					pieuvre = model;
 					mixer = new THREE.AnimationMixer(gltf.scene);
 
 					for(let i = 1; i < 9; i++) {
