@@ -292,7 +292,7 @@
 					const originalPosition = new THREE.Vector3().fromBufferAttribute(originalPositions, i);
 					const direction = originalPosition.clone().normalize();
 
-					let scaledAvg = splittedUpperHalfArrayAvg[i] / 500;
+					let scaledAvg = splittedUpperHalfArrayAvg[i] / 200;
 
 					direction.multiplyScalar(scaledAvg);
 					const newPosition = originalPosition.add(direction);
