@@ -26,10 +26,10 @@
 			import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 			import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-			let pieuvre;
+			let startTime = Date.now();
 
-			let bones = [];
-			let initialBones = [];
+			let cubesList = [];
+			let cubeBBox = [];
 
 			// Setup
 			const scene = new THREE.Scene();
@@ -73,30 +73,37 @@
 			}
 
 			function load() {
-				const loader = new GLTFLoader();
-				loader.load('models/pieuvre2.glb', function (gltf) {
-					const model = gltf.scene;
-					model.position.set(0, 0, 0);
-					model.scale.set(1, 1, 1);
-					scene.add(model);
-					pieuvre = model;
-					mixer = new THREE.AnimationMixer(gltf.scene);
-
-					for(let i = 1; i < 9; i++) {
-						let currTentacleBones = [];
-						let object = scene.getObjectByName("Bone_" + i);
-						currTentacleBones.push(object);
-						object = object.children;
-						while (!(object === undefined || object.length === 0)) {
-							currTentacleBones.push(object[0]);
-							object = object[0].children;
-						}
-						bones.push(currTentacleBones);
-						initialBones.push(currTentacleBones.map(bone => bone.clone()));
-					}
-					console.log(bones);
-				});
+				const size = 0.1;
+				for(let i = 0; i < 500; i++) {
+                    addCube(randomIntFromInterval(-size, size, 3), randomIntFromInterval(-size, size, 3), randomIntFromInterval(-size, size, 3), i);
+                }
 			}
+
+			function addCube(px, py, pz, id) {
+                const colorandom = new THREE.Color(0xffffff);
+                colorandom.setHex(Math.random() * 0xffffff);
+                const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+                const boxMaterial = new THREE.MeshBasicMaterial({ color: colorandom });
+                const cube = new THREE.Mesh(geometry, boxMaterial);
+
+                cube.position.set(px, py, pz);
+                cube.geometry.computeBoundingBox();
+				cube.name = "cube_" + id;
+                scene.add(cube);
+
+				cubesList.push(cube);
+				const box = new THREE.Box3().setFromObject(cube);
+				cubeBBox.push(box);
+
+				// const helper = new THREE.Box3Helper( box, 0xffff00 );
+				// scene.add( helper );
+
+                return cube;
+            }
+
+			function randomIntFromInterval(min, max, decimalPlaces) { // min and max included
+                return (Math.random() * (max - min) + min).toFixed(decimalPlaces) * 1;
+            }
 
 			function setupRenderer() {
 				const rend = new THREE.WebGLRenderer({ antialias: true });
@@ -144,27 +151,36 @@
 			function animate() {
 				requestAnimationFrame(animate);
 
-				let t = clock.getElapsedTime();
+				
 
-				if (bones.length > 0) {
-					for (let i = 0; i < bones.length; i++) {
-						for (let j = bones[i].length / 4; j < bones[i].length; j++) {
-							bones[i][j].position.x = initialBones[i][j].position.x + pointOnSineWave(t, j);
+				// for(let i = 0; i < cubesList.length; i++) {
+				// 	cubesList[i].position.x += randomIntFromInterval(-0.1, 0.1, 2);
+				// 	cubesList[i].position.y += randomIntFromInterval(-0.1, 0.1, 2);
+				// 	cubesList[i].position.z += randomIntFromInterval(-0.1, 0.1, 2);
+				// 	cubeBBox[i].setFromObject(cubesList[i]);
+				// }
+				const move = 0.01;
+
+				for(let i = 0; i < cubesList.length; i++) {
+					let isIntersecting = false;
+					for(let j = i; j < cubesList.length && !isIntersecting; j++) {
+						if(i != j) {
+							if(cubeBBox[i].intersectsBox(cubeBBox[j])) {
+								isIntersecting = true;
+								console.log("collision detected between " + cubesList[i].name + " and " + cubesList[j].name);
+								cubesList[i].position.x += randomIntFromInterval(-move, move, 5);
+								cubesList[i].position.y += randomIntFromInterval(-move, move, 5);
+								cubesList[i].position.z += randomIntFromInterval(-move, move, 5);
+								cubeBBox[i].setFromObject(cubesList[i]);
+								//Change color
+								const colorandom = new THREE.Color(0xffffff);
+								colorandom.setHex(Math.random() * 0xffffff);
+								cubesList[i].material.color = colorandom;
+							}
 						}
 					}
 				}
 				renderer.render(scene, camera);
-			}
-
-			function pointOnSineWave(x, boneIndex) {
-				const amplitude = 0.1;
-				const period = 3;
-
-				const bonePhaseOffset = Math.PI / initialBones[0].length;
-
-				const phase = boneIndex * bonePhaseOffset * 2;
-
-				return amplitude * Math.sin(2 * Math.PI * (x / period) + phase);
 			}
 
 
