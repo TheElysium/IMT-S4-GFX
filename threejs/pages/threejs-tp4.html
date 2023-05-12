@@ -74,7 +74,7 @@
 
 			function load() {
 				const size = 0.1;
-				for(let i = 0; i < 500; i++) {
+				for(let i = 0; i < 100; i++) {
                     addCube(randomIntFromInterval(-size, size, 3), randomIntFromInterval(-size, size, 3), randomIntFromInterval(-size, size, 3), i);
                 }
 			}
@@ -164,7 +164,7 @@
 				for(let i = 0; i < cubesList.length; i++) {
 					let isIntersecting = false;
 					for(let j = i; j < cubesList.length && !isIntersecting; j++) {
-						if(i != j) {
+						if(i !== j) {
 							if(cubeBBox[i].intersectsBox(cubeBBox[j])) {
 								isIntersecting = true;
 								console.log("collision detected between " + cubesList[i].name + " and " + cubesList[j].name);
